@@ -1,0 +1,194 @@
+version: "3.7"
+
+
+
+services:
+  php:
+    build:
+      context: ./php
+      args:
+        - BASE_IMAGE_TAG=${BASE_IMAGE_TAG}
+        - TIMEZONE=${TIMEZONE}
+    image: ${PROJECT_NAME}/php:${PHP_VERSION}
+    container_name: ${PROJECT_NAME}-php-${PHP_VERSION}
+    sysctls:
+      - net.core.somaxconn=511
+    volumes:
+      - "codebase:/var/www"
+      - "logbase:/var/log/docker"
+    environment:
+      - APP_ROOT=${PHP_ROOT}
+      - WITH_DRUPAL=${WITH_DRUPAL}
+      - WITH_DRUPAL_COMPOSER=${WITH_DRUPAL_COMPOSER}
+      - DRUPAL_VERSION=${DRUPAL_VERSION}
+      - PROJECT_BASE_URL=${PROJECT_BASE_URL}
+      - PM_MAX_CHILDREN=${PM_MAX_CHILDREN}
+      - PHP_MEMORY_LIMIT=${PHP_MEMORY_LIMIT}
+      - PHP_MAX_EXECUTION_TIME=${PHP_MAX_EXECUTION_TIME}
+      - PHP_UPLOAD_MAX_FILESIZE=${PHP_UPLOAD_MAX_FILESIZE}
+      - PHP_POST_MAX_SIZE=${PHP_POST_MAX_SIZE}
+      - PHP_MAX_FILE_UPLOADS=${PHP_MAX_FILE_UPLOADS}
+      - TIMEZONE=${TIMEZONE}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_PREFIX=${MYSQL_PREFIX}
+      - MYSQL_HOST=${MYSQL_HOST}
+      - MYSQL_PORT=${MYSQL_PORT}
+      - RELAY_HOST=${RELAY_HOST}
+      - RELAY_PORT=${RELAY_PORT}
+      - RELAY_USER=${RELAY_USER}
+      - RELAY_FROM=${RELAY_FROM}
+      - RELAY_SECRETS=${RELAY_SECRETS}
+      - MAILHOG_HOST=${MAILHOG_HOST}
+      - MAILHOG_PORT=${MAILHOG_PORT}
+    logging:
+      driver: syslog
+      options:
+        syslog-address: "udp://${HOST_IP}:${RSYSLOG_PORT}"
+        syslog-format: rfc3164
+        tag: php
+        mode: non-blocking
+    restart: always
+    expose:
+      - "9000"
+    depends_on:
+      - mysql
+
+
+  nginx:
+    build:
+      context: ./nginx
+      args:
+        - BASE_IMAGE_TAG=${BASE_IMAGE_TAG}
+        - TIMEZONE=${TIMEZONE}
+    image: ${PROJECT_NAME}/nginx:${NGINX_VERSION}
+    container_name: ${PROJECT_NAME}-nginx-${NGINX_VERSION}
+    sysctls:
+      - net.core.somaxconn=511
+    volumes:
+      - "codebase:/var/www:ro"
+    environment:
+      - APP_ROOT=${NGINX_ROOT}
+      - SERVER_NAME=${SERVER_NAME}
+      - FASTCGI_PASS_HOST=${FASTCGI_PASS_HOST}
+      - FASTCGI_PASS_PORT=${FASTCGI_PASS_PORT}
+    logging:
+      driver: syslog
+      options:
+        syslog-address: "udp://${HOST_IP}:${RSYSLOG_PORT}"
+        syslog-format: rfc3164
+        tag: web
+        mode: non-blocking
+    restart: always
+    expose:
+      - "8000"
+    depends_on:
+      - php
+    labels:
+      - 'traefik.backend=${PROJECT_NAME}_nginx'
+      - 'traefik.port=8000'
+      - 'traefik.frontend.rule=Host:nginx.${PROJECT_BASE_URL},127.0.0.1,localhost'
+
+
+  mysql:
+    build:
+      context: ./mysql
+      args:
+        - BASE_IMAGE_TAG=${BASE_IMAGE_TAG}
+        - TIMEZONE=${TIMEZONE}
+    image: ${PROJECT_NAME}/mysql:${MYSQL_VERSION}
+    container_name: ${PROJECT_NAME}-mysql-${MYSQL_VERSION}
+
+    stop_grace_period: 30s
+
+    volumes:
+      - "database:/var/lib/mysql"
+    environment:
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    logging:
+      driver: syslog
+      options:
+        syslog-address: "udp://${HOST_IP}:${RSYSLOG_PORT}"
+        syslog-format: rfc3164
+        tag: db
+        mode: non-blocking
+    restart: always
+    expose:
+      - "3306"
+    depends_on:
+      - rsyslog
+
+
+  rsyslog:
+    build:
+      context: ./rsyslog
+      args:
+        - BASE_IMAGE_TAG=${BASE_IMAGE_TAG}
+        - TIMEZONE=${TIMEZONE}
+    image: ${PROJECT_NAME}/rsyslog:${RSYSLOG_VERSION}
+    container_name: ${PROJECT_NAME}-rsyslog-${RSYSLOG_VERSION}
+    volumes:
+      - "logbase:/var/log/docker"
+    restart: always
+    ports:
+      - "514:514/udp"
+
+
+  mailhog:
+    image: mailhog/mailhog
+    container_name: "${PROJECT_NAME}_mailhog"
+    depends_on:
+      - traefik
+    labels:
+      - 'traefik.backend=${PROJECT_NAME}_mailhog'
+      - 'traefik.port=8025'
+      - 'traefik.frontend.rule=Host:mailhog.${PROJECT_BASE_URL}'
+
+
+  traefik:
+    image: traefik:1.7
+    container_name: "${PROJECT_NAME}_traefik"
+    # localhost without automatic Let's Encrypt SSL certificates renewal.
+    command: -c /dev/null --web --web.address=:3000 --docker --logLevel=INFO
+    # # Enable automatic request and configuration of SSL certificates using Let's Encrypt.
+    # command:
+    #   - "--api"
+    #   - "--entrypoints=Name:http Address::80 Redirect.EntryPoint:https"
+    #   - "--entrypoints=Name:https Address::443 TLS"
+    #   - "--defaultentrypoints=http,https"
+    #   - "--acme"
+    #   - "--acme.storage=/etc/traefik/acme/acme.json"
+    #   - "--acme.entryPoint=https"
+    #   - "--acme.httpChallenge.entryPoint=http"
+    #   - "--acme.onHostRule=true"
+    #   - "--acme.onDemand=false"
+    #   - "--acme.email=${EMAIL}"
+    #   - "--docker"
+    #   - "--docker.watch"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./traefik/acme:/etc/traefik/acme
+    restart: always
+    ports:
+      - '80:80'
+      # - '443:443'
+      - '8080:3000' # Dashboard
+
+
+
+
+volumes:
+  codebase:
+    # external:
+    #   name: codebase
+  database:
+    # external:
+    #   name: database
+  logbase:
+    # external:
+    #   name: logbase
