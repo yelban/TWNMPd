@@ -40,9 +40,9 @@ services:
       - RELAY_USER=${RELAY_USER}
       - RELAY_FROM=${RELAY_FROM}
       - RELAY_SECRETS=${RELAY_SECRETS}
-      - WITH_MAILHOG=${WITH_MAILHOG}
-      - MAILHOG_HOST=${MAILHOG_HOST}
-      - MAILHOG_PORT=${MAILHOG_PORT}
+      - WITH_MAILHOG=no
+      # - MAILHOG_HOST=${MAILHOG_HOST}
+      # - MAILHOG_PORT=${MAILHOG_PORT}
     logging:
       driver: syslog
       options:
@@ -149,45 +149,45 @@ services:
       - "514:514/udp"
 
 
-  # localhost without automatic Let's Encrypt SSL certificates renewal.
-  traefik:
-    image: traefik:1.7
-    container_name: "${PROJECT_NAME}_traefik"
-    command: -c /dev/null --web --web.address=:3000 --docker --logLevel=INFO
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./traefik/acme:/etc/traefik/acme
-    restart: always
-    ports:
-      - '80:80'
-      - '8080:3000' # Dashboard
-
-
-  # # Enable automatic request and configuration of SSL certificates using Let's Encrypt.
+  # # localhost without automatic Let's Encrypt SSL certificates renewal.
   # traefik:
   #   image: traefik:1.7
   #   container_name: "${PROJECT_NAME}_traefik"
-  #   command:
-  #     - "--api"
-  #     - "--entrypoints=Name:http Address::80 Redirect.EntryPoint:https"
-  #     - "--entrypoints=Name:https Address::443 TLS"
-  #     - "--defaultentrypoints=http,https"
-  #     - "--acme"
-  #     - "--acme.storage=/etc/traefik/acme/acme.json"
-  #     - "--acme.entryPoint=https"
-  #     - "--acme.httpChallenge.entryPoint=http"
-  #     - "--acme.onHostRule=true"
-  #     - "--acme.onDemand=false"
-  #     - "--acme.email=${TRAEFIK_EMAIL}"
-  #     - "--docker"
-  #     - "--docker.watch"
+  #   command: -c /dev/null --web --web.address=:3000 --docker --logLevel=INFO
   #   volumes:
   #     - /var/run/docker.sock:/var/run/docker.sock
   #     - ./traefik/acme:/etc/traefik/acme
   #   restart: always
   #   ports:
   #     - '80:80'
-  #     - '443:443'
+  #     - '8080:3000' # Dashboard
+
+
+  # Enable automatic request and configuration of SSL certificates using Let's Encrypt.
+  traefik:
+    image: traefik:1.7
+    container_name: "${PROJECT_NAME}_traefik"
+    command:
+      - "--api"
+      - "--entrypoints=Name:http Address::80 Redirect.EntryPoint:https"
+      - "--entrypoints=Name:https Address::443 TLS"
+      - "--defaultentrypoints=http,https"
+      - "--acme"
+      - "--acme.storage=/etc/traefik/acme/acme.json"
+      - "--acme.entryPoint=https"
+      - "--acme.httpChallenge.entryPoint=http"
+      - "--acme.onHostRule=true"
+      - "--acme.onDemand=false"
+      - "--acme.email=${TRAEFIK_EMAIL}"
+      - "--docker"
+      - "--docker.watch"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./traefik/acme:/etc/traefik/acme
+    restart: always
+    ports:
+      - '80:80'
+      - '443:443'
 
 
 volumes:

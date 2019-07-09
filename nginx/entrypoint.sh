@@ -28,7 +28,10 @@ fi
 
 export HOST=$HOST
 
-# update server_name directive within the www.conf
+if [ "${EXPOSE_PORT}" != "8000" ]; then
+        sed -i -e "s/listen\s*8000/listen  ${EXPOSE_PORT}/g" /etc/nginx/conf.d/www.conf
+fi
+
 if [ "${SERVER_NAME}" != "localhost" ]; then
         sed -i -e "s/server_name\s*localhost/server_name  ${SERVER_NAME}/g" /etc/nginx/conf.d/www.conf
 fi
