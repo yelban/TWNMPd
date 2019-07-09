@@ -29,9 +29,12 @@ if [ -e "/etc/php7/php.ini" ]; then
     sed -i "s/upload_max_filesize =.*/upload_max_filesize = ${PHP_UPLOAD_MAX_FILESIZE}/g" /etc/php7/php.ini
     sed -i "s/max_file_uploads =.*/max_file_uploads = ${PHP_MAX_FILE_UPLOADS}/g" /etc/php7/php.ini
     sed -i "s/post_max_size =.*/post_max_size = ${PHP_POST_MAX_SIZE}/g" /etc/php7/php.ini
-    MAILHOG_HOST=${MAILHOG_HOST:-"0"}
+
+    MAILHOG_HOST=${MAILHOG_HOST:-"mailhog"}
     MAILHOG_PORT=${MAILHOG_PORT:-"1025"}
-    if [ "$MAILHOG_HOST" == "0" ]; then
+    WITH_MAILHOG=${WITH_MAILHOG:-"no"}
+
+    if [ "$WITH_MAILHOG" != "yes" ]; then
         sed -i 's#;sendmail_path =.*#sendmail_path = "/usr/bin/msmtp -C /etc/php7/.msmtprc --logfile=/var/log/docker/msmtp/access.log -a gmail -t"#g' /etc/php7/php.ini
     else
         sed -i "s#;sendmail_path =.*#sendmail_path = \"\/usr\/sbin\/sendmail -S ${MAILHOG_HOST}:${MAILHOG_PORT}\"#g" /etc/php7/php.ini
@@ -40,6 +43,7 @@ fi
 
 # opcache settings
 if [ ! -e "/etc/php7/conf.d/03_opcache-recommended.ini" ]; then
+
     { \
 		echo 'opcache.memory_consumption=128'; \
 		echo 'opcache.interned_strings_buffer=8'; \
@@ -57,6 +61,7 @@ if [ ! -e "/etc/php7/.msmtprc" ]; then
     chown www-data:www-data /etc/php7/.msmtprc
     mkdir -p /var/log/docker/msmtp
     chown www-data:www-data /var/log/docker/msmtp
+
     { \
         echo 'account gmail'; \
         echo 'tls on'; \
@@ -101,7 +106,6 @@ if [ ! -e "${WWW_ROOT}/index.php" ]; then
     if [ "$WITH_DRUPAL" != "yes" ]; then
         mkdir -p ${WWW_ROOT}
         echo -e "<?php\n\nphpinfo();\n\n\n?>" > ${WWW_ROOT}/index.php
-
     else
         SETTINGS="${WWW_ROOT}/sites/default/settings.php"
 
@@ -120,7 +124,7 @@ if [ ! -e "${WWW_ROOT}/index.php" ]; then
         else
             mkdir -p ${WWW_ROOT}
             HINTS_ING="Drupal codebase is preparing... Please wait!"
-            echo "<html><head><meta http-equiv='refresh' content='5' /><title>TWNMPd</title></head><body><h3>${HINTS_ING}</h3>It would take some time. This page will redirect to Drupal Installation when ready.<p><img src='https://upload.wikimedia.org/wikipedia/commons/9/92/Loading_icon_cropped.gif' /></p></body></html>" > ${WWW_ROOT}/index.html
+            echo "<html><head><meta http-equiv='refresh' content='5' /><title>TWNMPd</title></head><body><h3>${HINTS_ING}</h3>It would take some time (about 6 minutes). This page will redirect to Drupal Installation when ready.<p><img src='https://upload.wikimedia.org/wikipedia/commons/9/92/Loading_icon_cropped.gif' /></p></body></html>" > ${WWW_ROOT}/index.html
             touch "${APP_ROOT}/$HINTS_ING"
 
             DRUPAL_SRC="/var/www/drupal"
@@ -170,6 +174,7 @@ if [ ! -e "${WWW_ROOT}/index.php" ]; then
         # docker host for mac and windows
         ping -c 1 ${HOST} >/dev/null 2>&1
 
+        # get return code to judge ping result
         EXIST_HOST_DOCKER_INTERNAL=$(echo $?)
 
         if [ "$EXIST_HOST_DOCKER_INTERNAL" != "0" ]; then
@@ -199,5 +204,6 @@ if [ ! -e "${WWW_ROOT}/index.php" ]; then
     chown -R www-data:www-data ${WWW_ROOT}
 
 fi
+
 
 exec "$@"

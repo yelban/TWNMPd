@@ -177,7 +177,7 @@ sudo vi **/etc/hosts** *(* **/private/etc/hosts** *for masOS )*
 
 #### Temporary Preparing Page
 
-Because composer installation takes a long time ( **about 9 minutes** ), You will see preparing page until the installation is complete.
+Because composer installation takes a long time ( **about 6 minutes** ), You will see preparing page until the installation is complete.
 <p align="center">
 <kbd><img src="https://images2.imgbox.com/81/10/YZiUpusH_o.png" /></kbd>
 </p>

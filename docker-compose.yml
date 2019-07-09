@@ -40,6 +40,7 @@ services:
       - RELAY_USER=${RELAY_USER}
       - RELAY_FROM=${RELAY_FROM}
       - RELAY_SECRETS=${RELAY_SECRETS}
+      - WITH_MAILHOG=${WITH_MAILHOG}
       - MAILHOG_HOST=${MAILHOG_HOST}
       - MAILHOG_PORT=${MAILHOG_PORT}
     logging:
@@ -55,6 +56,16 @@ services:
     depends_on:
       - mysql
 
+
+  mailhog:
+    image: mailhog/mailhog
+    container_name: "${PROJECT_NAME}_mailhog"
+    depends_on:
+      - traefik
+    labels:
+      - 'traefik.backend=${PROJECT_NAME}_mailhog'
+      - 'traefik.port=8025'
+      - 'traefik.frontend.rule=Host:mailhog.${PROJECT_BASE_URL}'
 
   nginx:
     build:
@@ -99,9 +110,7 @@ services:
         - TIMEZONE=${TIMEZONE}
     image: ${PROJECT_NAME}/mysql:${MYSQL_VERSION}
     container_name: ${PROJECT_NAME}-mysql-${MYSQL_VERSION}
-
     stop_grace_period: 30s
-
     volumes:
       - "database:/var/lib/mysql"
     environment:
@@ -139,46 +148,47 @@ services:
       - "514:514/udp"
 
 
-  mailhog:
-    image: mailhog/mailhog
-    container_name: "${PROJECT_NAME}_mailhog"
-    depends_on:
-      - traefik
-    labels:
-      - 'traefik.backend=${PROJECT_NAME}_mailhog'
-      - 'traefik.port=8025'
-      - 'traefik.frontend.rule=Host:mailhog.${PROJECT_BASE_URL}'
-
-
+  # Local dev without SSL cert
   traefik:
     image: traefik:1.7
     container_name: "${PROJECT_NAME}_traefik"
     # localhost without automatic Let's Encrypt SSL certificates renewal.
     command: -c /dev/null --web --web.address=:3000 --docker --logLevel=INFO
-    # # Enable automatic request and configuration of SSL certificates using Let's Encrypt.
-    # command:
-    #   - "--api"
-    #   - "--entrypoints=Name:http Address::80 Redirect.EntryPoint:https"
-    #   - "--entrypoints=Name:https Address::443 TLS"
-    #   - "--defaultentrypoints=http,https"
-    #   - "--acme"
-    #   - "--acme.storage=/etc/traefik/acme/acme.json"
-    #   - "--acme.entryPoint=https"
-    #   - "--acme.httpChallenge.entryPoint=http"
-    #   - "--acme.onHostRule=true"
-    #   - "--acme.onDemand=false"
-    #   - "--acme.email=${EMAIL}"
-    #   - "--docker"
-    #   - "--docker.watch"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./traefik/acme:/etc/traefik/acme
     restart: always
     ports:
       - '80:80'
-      # - '443:443'
       - '8080:3000' # Dashboard
 
+
+  # # Enable SSL cert auto request
+  # traefik:
+  #   image: traefik:1.7
+  #   container_name: "${PROJECT_NAME}_traefik"
+  #   # Enable automatic request and configuration of SSL certificates using Let's Encrypt.
+  #   command:
+  #     - "--api"
+  #     - "--entrypoints=Name:http Address::80 Redirect.EntryPoint:https"
+  #     - "--entrypoints=Name:https Address::443 TLS"
+  #     - "--defaultentrypoints=http,https"
+  #     - "--acme"
+  #     - "--acme.storage=/etc/traefik/acme/acme.json"
+  #     - "--acme.entryPoint=https"
+  #     - "--acme.httpChallenge.entryPoint=http"
+  #     - "--acme.onHostRule=true"
+  #     - "--acme.onDemand=false"
+  #     - "--acme.email=${TRAEFIK_EMAIL}"
+  #     - "--docker"
+  #     - "--docker.watch"
+  #   volumes:
+  #     - /var/run/docker.sock:/var/run/docker.sock
+  #     - ./traefik/acme:/etc/traefik/acme
+  #   restart: always
+  #   ports:
+  #     - '80:80'
+  #     - '443:443'
 
 
 
