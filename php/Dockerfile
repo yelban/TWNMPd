@@ -93,7 +93,7 @@ RUN set -e \
     # && mkdir -p /var/www/html \
     # && echo -e "<?php\n\nphpinfo();\n\n\n?>" > /var/www/html/index.php \
     # && chown -R www-data:www-data /var/www/html \
-    && echo 'PS1="\e[1;32m[\w]\\$ \e[0m"' >> /root/.bashrc \
+    # && echo 'PS1="\e[1;32m[\w]\\$ \e[0m"' >> /root/.bashrc \
     \
     && pecl update-channels \
     && rm -rf /tmp/pear ~/.pearrc \
